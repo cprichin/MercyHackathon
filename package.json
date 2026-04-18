@@ -1,26 +1,11 @@
 {
-  "name": "mercy",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/cprichin/MercyHackathon.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/cprichin/MercyHackathon/issues"
-  },
-  "homepage": "https://github.com/cprichin/MercyHackathon#readme",
   "dependencies": {
-    "anthropic": "^0.0.0",
+    "@anthropic-ai/sdk": "^0.90.0",
+    "better-sqlite3": "^12.9.0",
     "dotenv": "^17.4.2",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "nodemailer": "^8.0.5",
+    "npm": "^11.12.1"
   }
 }

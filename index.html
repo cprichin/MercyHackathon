@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Security Monitor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #080c10;
+      --panel: #0d1117;
+      --border: #1a2535;
+      --accent: #00aaff;
+      --green: #00ff88;
+      --red: #ff2244;
+      --orange: #ff8800;
+      --yellow: #ffcc00;
+      --text: #c8d8e8;
+      --dim: #4a6070;
+      --mono: 'Share Tech Mono', monospace;
+      --sans: 'Barlow Condensed', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.4s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.7); }
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--dim);
+    }
+
+    #clock { color: var(--accent); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 28px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .controls-group:last-child { border-right: none; }
+
+    .btn {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      padding: 7px 16px;
+      border: 1px solid var(--accent);
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--accent); color: var(--bg); }
+    .btn.danger { border-color: var(--red); color: var(--red); }
+    .btn.danger:hover { background: var(--red); color: #fff; }
+    .btn.warn { border-color: var(--yellow); color: var(--yellow); }
+    .btn.warn:hover { background: var(--yellow); color: var(--bg); }
+    .btn.flagged { border-color: var(--orange); color: var(--orange); background: rgba(255,136,0,0.1); }
+
+    label {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    input[type="text"] {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+    }
+
+    input[type="text"]:focus { outline: none; border-color: var(--accent); }
+    #new-cam-id { width: 90px; }
+    #ip-cam-id  { width: 90px; }
+    #stream-url { width: 220px; }
+
+    /* Panels */
+    .side-panel {
+      display: none;
+      padding: 16px 28px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+    }
+
+    #people-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+
+    .person-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      width: 270px;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      line-height: 1.8;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .person-card.flagged { border-color: var(--orange); box-shadow: 0 0 8px rgba(255,136,0,0.2); }
+    .person-id   { color: var(--accent); margin-bottom: 4px; font-size: 0.75rem; }
+    .person-desc { color: var(--text); margin-bottom: 2px; }
+    .person-meta { color: var(--dim); }
+    .person-note { color: var(--yellow); margin-top: 4px; }
+
+    .person-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .person-actions .btn { font-size: 0.62rem; padding: 3px 8px; }
+
+    /* Modal */
+    #modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #modal-overlay.open { display: flex; }
+
+    #modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      width: 620px;
+      max-height: 75vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+
+    #modal-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-tab {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 8px 16px;
+      background: none;
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--dim);
+      cursor: pointer;
+    }
+
+    .modal-tab.active { color: var(--accent); background: rgba(0,170,255,0.05); }
+    .modal-tab:hover  { color: var(--text); }
+
+    #modal-close {
+      background: none;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      font-size: 1rem;
+      font-family: var(--mono);
+    }
+
+    #modal-close:hover { color: var(--red); }
+
+    #modal-body {
+      overflow-y: auto;
+      padding: 12px 16px;
+      flex: 1;
+      font-family: var(--mono);
+      font-size: 0.7rem;
+    }
+
+    .sighting-entry {
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      color: var(--dim);
+      align-items: flex-start;
+    }
+
+    .sighting-entry:last-child { border-bottom: none; }
+    .sighting-time { min-width: 80px; }
+    .sighting-cam  { color: var(--accent); min-width: 80px; }
+    .sighting-sev  { min-width: 70px; }
+    .sighting-sev.HIGH   { color: var(--red); }
+    .sighting-sev.MEDIUM { color: var(--orange); }
+    .sighting-sev.LOW    { color: var(--yellow); }
+    .sighting-sev.RETURN { color: var(--accent); }
+    .sighting-desc { color: var(--text); flex: 1; }
+
+    .timeline { padding: 8px 0; }
+
+    .timeline-entry {
+      display: flex;
+      gap: 12px;
+      padding: 6px 0;
+      position: relative;
+    }
+
+    .timeline-entry::before {
+      content: '';
+      position: absolute;
+      left: 54px;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--border);
+    }
+
+    .tl-time { color: var(--dim); min-width: 50px; font-size: 0.65rem; }
+    .tl-dot  {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-top: 2px;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .tl-dot.incident { background: var(--red); }
+
+    .tl-cam   { color: var(--accent); min-width: 80px; }
+    .tl-label { color: var(--text); }
+
+    /* Camera grid */
+    #camera-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 16px;
+      padding: 20px 28px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .camera-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .camera-card.alert-HIGH   { border-color: var(--red);    box-shadow: 0 0 16px rgba(255,34,68,0.3); }
+    .camera-card.alert-MEDIUM { border-color: var(--orange); box-shadow: 0 0 16px rgba(255,136,0,0.2); }
+    .camera-card.alert-LOW    { border-color: var(--yellow); }
+    .camera-card.restricted   { border-top: 3px solid var(--red); }
+
+    /* Camera header — all inline, no absolute positioning */
+    .camera-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+
+    .cam-id {
+      color: var(--accent);
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    .cam-badges { display: flex; gap: 4px; align-items: center; }
+
+    .cam-badge {
+      font-size: 0.58rem;
+      padding: 1px 5px;
+      border: 1px solid var(--dim);
+      color: var(--dim);
+    }
+
+    .cam-badge.restricted-badge { border-color: var(--red); color: var(--red); }
+
+    .cam-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--dim);
+      font-size: 0.7rem;
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .cam-status span {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.4s infinite;
+      flex-shrink: 0;
+    }
+
+    .status-dot.analyzing { background: var(--yellow); }
+    .status-dot.alert     { background: var(--red); animation: pulse 0.6s infinite; }
+    .status-dot.error     { background: var(--red); animation: none; }
+
+    /* Zone + remove buttons — inline in header, no absolute */
+    .zone-btn {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      color: var(--dim);
+      background: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      padding: 2px 6px;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+
+    .zone-btn:hover  { border-color: var(--red); color: var(--red); }
+    .zone-btn.active { border-color: var(--red); color: var(--red); background: rgba(255,34,68,0.1); }
+
+    .remove-btn {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--dim);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 4px;
+      flex-shrink: 0;
+    }
+
+    .remove-btn:hover { color: var(--red); }
+
+    /* Camera feed */
+    .camera-feed { position: relative; background: #000; }
+
+    video, .ip-feed-img {
+      width: 100%;
+      display: block;
+      max-height: 240px;
+      object-fit: cover;
+    }
+
+    canvas { display: none; }
+
+    .camera-feed::before,
+    .camera-feed::after {
+      content: '';
+      position: absolute;
+      width: 16px; height: 16px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .camera-feed::before { top: 6px; left: 6px;     border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); }
+    .camera-feed::after  { bottom: 6px; right: 6px; border-bottom: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+
+    .restricted-overlay {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      background: rgba(255,34,68,0.15);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--red);
+      text-align: center;
+      padding: 3px;
+      letter-spacing: 0.1em;
+      z-index: 4;
+    }
+
+    .camera-card.restricted .restricted-overlay { display: block; }
+
+    .rec-badge {
+      position: absolute;
+      top: 8px; right: 10px;
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      color: var(--red);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      z-index: 3;
+    }
+
+    .rec-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--red);
+      animation: pulse 1s infinite;
+    }
+
+    /* Camera info */
+    .camera-info {
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.6;
+      min-height: 90px;
+    }
+
+    .info-row { display: flex; gap: 8px; margin-bottom: 3px; align-items: flex-start; }
+    .info-label { color: var(--dim); min-width: 80px; flex-shrink: 0; }
+    .info-value { color: var(--text); }
+    .info-value.HIGH   { color: var(--red); }
+    .info-value.MEDIUM { color: var(--orange); }
+    .info-value.LOW    { color: var(--yellow); }
+    .info-value.clear  { color: var(--green); }
+    .info-value.cross  { color: var(--accent); }
+    .info-value.error  { color: var(--red); }
+
+    .behavioral-alerts { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+
+    .behavioral-alert {
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      padding: 3px 7px;
+      border-left: 2px solid var(--yellow);
+      color: var(--yellow);
+      background: rgba(255,204,0,0.05);
+    }
+
+    .behavioral-alert.RESTRICTED_ZONE { border-left-color: var(--red);    color: var(--red);    background: rgba(255,34,68,0.05); }
+    .behavioral-alert.RETURN          { border-left-color: var(--accent);  color: var(--accent); background: rgba(0,170,255,0.05); }
+
+    .people-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+
+    .person-tag {
+      font-family: var(--mono);
+      font-size: 0.62rem;
+      padding: 2px 7px;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .person-tag:hover        { background: var(--accent); color: var(--bg); }
+    .person-tag.returning    { border-color: var(--yellow);  color: var(--yellow); }
+    .person-tag.returning:hover { background: var(--yellow); color: var(--bg); }
+    .person-tag.flagged-tag  { border-color: var(--orange);  color: var(--orange); }
+    .person-tag.flagged-tag:hover { background: var(--orange); color: var(--bg); }
+    .person-tag.new-tag      { border-color: var(--green);   color: var(--green); }
+    .person-tag.new-tag:hover { background: var(--green);  color: var(--bg); }
+
+    /* Log */
+    #log-section { padding: 0 28px 28px; }
+
+    .log-header {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+      padding: 10px 0 8px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    #incident-log {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .log-entry {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      padding: 7px 12px;
+      background: var(--panel);
+      border-left: 3px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .log-entry.HIGH       { border-left-color: var(--red); }
+    .log-entry.MEDIUM     { border-left-color: var(--orange); }
+    .log-entry.LOW        { border-left-color: var(--yellow); }
+    .log-entry.BEHAVIORAL { border-left-color: var(--accent); }
+
+    .log-time { color: var(--dim); min-width: 70px; }
+    .log-cam  { color: var(--accent); min-width: 80px; }
+    .log-sev  { min-width: 120px; }
+    .log-sev.HIGH       { color: var(--red); }
+    .log-sev.MEDIUM     { color: var(--orange); }
+    .log-sev.LOW        { color: var(--yellow); }
+    .log-sev.BEHAVIORAL { color: var(--accent); }
+    .log-desc { color: var(--text); flex: 1; }
+
+    .empty-log {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--dim);
+      padding: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    AI SECURITY MONITOR
+  </div>
+  <div class="header-right">
+    <span>MERCY UNIVERSITY HACKATHON</span>
+    <span id="clock">--:--:--</span>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="controls-group">
+    <label>WEBCAM</label>
+    <input type="text" id="new-cam-id" placeholder="CAM-ID"/>
+    <button class="btn" onclick="addWebcam()">+ ADD WEBCAM</button>
+  </div>
+
+  <div class="controls-group">
+    <label>IP CAM</label>
+    <input type="text" id="ip-cam-id" placeholder="CAM-ID"/>
+    <input type="text" id="stream-url" placeholder="rtsp:// or http://..."/>
+    <button class="btn" onclick="addIpCamera()">+ ADD IP CAM</button>
+  </div>
+
+  <div class="controls-group">
+    <button class="btn warn" onclick="togglePanel('people-panel')">👤 PEOPLE DB</button>
+    <button class="btn danger" onclick="clearAll()">CLEAR ALL</button>
+  </div>
+</div>
+
+<!-- People panel -->
+<div id="people-panel" class="side-panel">
+  <div class="panel-header">
+    <span class="section-title">// PEOPLE DATABASE</span>
+    <button class="btn" style="font-size:0.7rem;padding:5px 12px;" onclick="refreshPeople()">↻ REFRESH</button>
+  </div>
+  <div id="people-list">
+    <span class="empty-log">No people recorded yet.</span>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-overlay">
+  <div id="modal">
+    <div id="modal-header">
+      <span id="modal-title">// PERSON DETAIL</span>
+      <button id="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-tabs">
+      <button class="modal-tab active" onclick="switchTab('sightings')">SIGHTINGS</button>
+      <button class="modal-tab" onclick="switchTab('timeline')">MOVEMENT TIMELINE</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="camera-grid"></div>
+
+<div id="log-section">
+  <div class="log-header">// INCIDENT + BEHAVIORAL LOG</div>
+  <div id="incident-log">
+    <div class="empty-log">No incidents detected yet.</div>
+  </div>
+</div>
+
+<script>
+  const cameras = {};
+  const INTERVAL_MS = 5000;
+  let restrictedZones = new Set();
+  let currentModalPersonId = null;
+
+  fetch('/restricted-zones').then(r => r.json()).then(zones => {
+    zones.forEach(z => restrictedZones.add(z));
+  });
+
+  setInterval(() => {
+    document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+  }, 1000);
+
+  // ─── Panel toggle ──────────────────────────────────────────────────────────
+  function togglePanel(panelId) {
+    const panel = document.getElementById(panelId);
+    const isOpen = panel.style.display === 'block';
+    panel.style.display = isOpen ? 'none' : 'block';
+    if (!isOpen && panelId === 'people-panel') refreshPeople();
+  }
+
+  // ─── Card builder ──────────────────────────────────────────────────────────
+  function buildCard(camId, type) {
+    const card = document.createElement('div');
+    const isRestricted = restrictedZones.has(camId);
+    card.className = `camera-card${isRestricted ? ' restricted' : ''}`;
+    card.id = `card-${camId}`;
+
+    const feedHtml = type === 'ip'
+      ? `<img id="feed-${camId}" class="ip-feed-img" src="" alt="Connecting..."/>`
+      : `<video id="video-${camId}" autoplay muted playsinline></video>`;
+
+    card.innerHTML = `
+      <div class="camera-header">
+        <span class="cam-id">
+          // ${camId}
+          <span class="cam-badges">
+            <span class="cam-badge">${type === 'ip' ? 'IP' : 'USB'}</span>
+            <span class="cam-badge restricted-badge" id="zone-badge-${camId}" style="display:${isRestricted ? 'inline' : 'none'}">ZONE</span>
+          </span>
+        </span>
+        <div class="cam-status">
+          <div class="status-dot" id="dot-${camId}"></div>
+          <span id="status-text-${camId}">CONNECTING...</span>
+        </div>
+        <button class="zone-btn ${isRestricted ? 'active' : ''}" id="zone-btn-${camId}" onclick="toggleRestrictedZone('${camId}')" title="Toggle restricted zone">🔒</button>
+        <button class="remove-btn" onclick="removeCamera('${camId}')" title="Remove camera">✕</button>
+      </div>
+      <div class="camera-feed">
+        <div class="restricted-overlay">⚠ RESTRICTED ZONE</div>
+        ${feedHtml}
+        <canvas id="canvas-${camId}" width="640" height="480"></canvas>
+        <div class="rec-badge"><div class="rec-dot"></div>REC</div>
+      </div>
+      <div class="camera-info">
+        <div class="info-row"><span class="info-label">STATUS</span><span class="info-value clear" id="iv-status-${camId}">INITIALIZING...</span></div>
+        <div class="info-row"><span class="info-label">SEVERITY</span><span class="info-value" id="iv-sev-${camId}">—</span></div>
+        <div class="info-row"><span class="info-label">TYPE</span><span class="info-value" id="iv-type-${camId}">—</span></div>
+        <div class="info-row"><span class="info-label">DETAIL</span><span class="info-value" id="iv-desc-${camId}">—</span></div>
+        <div class="info-row" id="cross-row-${camId}" style="display:none">
+          <span class="info-label">CROSS-CAM</span>
+          <span class="info-value cross" id="iv-cross-${camId}">—</span>
+        </div>
+        <div class="info-row" id="people-row-${camId}" style="display:none">
+          <span class="info-label">PEOPLE</span>
+          <div class="people-tags" id="iv-people-${camId}"></div>
+        </div>
+        <div class="behavioral-alerts" id="behavioral-${camId}"></div>
+      </div>
+    `;
+
+    document.getElementById('camera-grid').appendChild(card);
+    return card;
+  }
+
+  // ─── Restricted zone ───────────────────────────────────────────────────────
+  async function toggleRestrictedZone(camId) {
+    const res = await fetch(`/restricted-zones/${camId}`, { method: 'POST' });
+    const data = await res.json();
+    const card  = document.getElementById(`card-${camId}`);
+    const btn   = document.getElementById(`zone-btn-${camId}`);
+    const badge = document.getElementById(`zone-badge-${camId}`);
+
+    if (data.restricted) {
+      restrictedZones.add(camId);
+      card.classList.add('restricted');
+      btn.classList.add('active');
+      badge.style.display = 'inline';
+    } else {
+      restrictedZones.delete(camId);
+      card.classList.remove('restricted');
+      btn.classList.remove('active');
+      badge.style.display = 'none';
+    }
+  }
+
+  // ─── Add webcam ────────────────────────────────────────────────────────────
+  async function addWebcam() {
+    const camId = (document.getElementById('new-cam-id').value.trim() ||
+      `CAM-${Object.keys(cameras).length + 1}`).toUpperCase();
+
+    if (cameras[camId]) { alert(`Camera ${camId} already exists.`); return; }
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    const usedDeviceIds = Object.values(cameras)
+      .filter(c => c.type === 'webcam' && c.stream)
+      .map(c => c.stream.getVideoTracks()[0].getSettings().deviceId);
+    const freeDevice = videoDevices.find(d => !usedDeviceIds.includes(d.deviceId));
+
+    if (!freeDevice) { alert('No available webcams.'); return; }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { deviceId: { exact: freeDevice.deviceId }, width: 640, height: 480 }
+      });
+    } catch (e) { alert('Could not access webcam: ' + e.message); return; }
+
+    buildCard(camId, 'webcam');
+    document.getElementById(`video-${camId}`).srcObject = stream;
+    cameras[camId] = { type: 'webcam', stream };
+    cameras[camId].intervalId = setInterval(() => analyzeWebcam(camId), INTERVAL_MS);
+    document.getElementById('new-cam-id').value = '';
+    setTimeout(() => analyzeWebcam(camId), 1500);
+  }
+
+  // ─── Add IP camera ─────────────────────────────────────────────────────────
+  async function addIpCamera() {
+    const camId = (document.getElementById('ip-cam-id').value.trim() ||
+      `IP-${Object.keys(cameras).length + 1}`).toUpperCase();
+    const streamUrl = document.getElementById('stream-url').value.trim();
+
+    if (!streamUrl) { alert('Please enter a stream URL.'); return; }
+    if (cameras[camId]) { alert(`Camera ${camId} already exists.`); return; }
+
+    const usedUrls = Object.values(cameras).filter(c => c.type === 'ip').map(c => c.streamUrl);
+    if (usedUrls.includes(streamUrl)) { alert('That stream URL is already in use.'); return; }
+
+    buildCard(camId, 'ip');
+    cameras[camId] = { type: 'ip', streamUrl };
+    cameras[camId].intervalId = setInterval(() => analyzeIpCamera(camId), INTERVAL_MS);
+    document.getElementById('ip-cam-id').value = '';
+    document.getElementById('stream-url').value = '';
+    analyzeIpCamera(camId);
+  }
+
+  // ─── Analyze ───────────────────────────────────────────────────────────────
+  async function analyzeWebcam(camId) {
+    const video  = document.getElementById(`video-${camId}`);
+    const canvas = document.getElementById(`canvas-${camId}`);
+    if (!video || !canvas) return;
+    setAnalyzing(camId);
+    canvas.getContext('2d').drawImage(video, 0, 0, 640, 480);
+    await sendToAnalyze(camId, canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+  }
+
+  async function analyzeIpCamera(camId) {
+    const cam = cameras[camId];
+    if (!cam) return;
+    setAnalyzing(camId);
+    try {
+      const r = await fetch('/capture-ip-camera', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ streamUrl: cam.streamUrl })
+      });
+      if (!r.ok) throw new Error('Capture failed');
+      const { image } = await r.json();
+      const img = document.getElementById(`feed-${camId}`);
+      if (img) img.src = `data:image/jpeg;base64,${image}`;
+      await sendToAnalyze(camId, image);
+    } catch (err) {
+      setError(camId, 'CONNECTION ERROR');
+    }
+  }
+
+  async function sendToAnalyze(camId, base64) {
+    try {
+      const res = await fetch('/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, cameraId: camId })
+      });
+      const result = await res.json();
+      if (result.error) throw new Error(result.error);
+      updateCard(camId, result);
+    } catch (err) {
+      setError(camId, err.message);
+    }
+  }
+
+  // ─── UI helpers ────────────────────────────────────────────────────────────
+  function setAnalyzing(camId) {
+    const dot = document.getElementById(`dot-${camId}`);
+    const txt = document.getElementById(`status-text-${camId}`);
+    if (dot) dot.className = 'status-dot analyzing';
+    if (txt) txt.textContent = 'ANALYZING...';
+  }
+
+  function setError(camId, message) {
+    const dot = document.getElementById(`dot-${camId}`);
+    const txt = document.getElementById(`status-text-${camId}`);
+    const val = document.getElementById(`iv-status-${camId}`);
+    if (dot) dot.className = 'status-dot error';
+    if (txt) txt.textContent = 'ERROR';
+    if (val) { val.textContent = message; val.className = 'info-value error'; }
+  }
+
+  function updateCard(camId, result) {
+    const card = document.getElementById(`card-${camId}`);
+    const dot  = document.getElementById(`dot-${camId}`);
+    const txt  = document.getElementById(`status-text-${camId}`);
+    if (!card) return;
+
+    const isRestricted = restrictedZones.has(camId);
+    const baseClass = `camera-card${isRestricted ? ' restricted' : ''}`;
+
+    if (result.incident) {
+      dot.className = 'status-dot alert';
+      txt.textContent = 'ALERT';
+      card.className = `${baseClass} alert-${result.severity}`;
+    } else {
+      dot.className = 'status-dot';
+      txt.textContent = 'LIVE';
+      card.className = baseClass;
+    }
+
+    const statusEl = document.getElementById(`iv-status-${camId}`);
+    statusEl.textContent = result.incident ? 'INCIDENT DETECTED' : 'ALL CLEAR';
+    statusEl.className = `info-value ${result.incident ? result.severity : 'clear'}`;
+
+    const sevEl = document.getElementById(`iv-sev-${camId}`);
+    sevEl.textContent = result.severity || '—';
+    sevEl.className = `info-value ${result.severity || ''}`;
+
+    document.getElementById(`iv-type-${camId}`).textContent = result.type || '—';
+    document.getElementById(`iv-desc-${camId}`).textContent = result.description || '—';
+
+    const crossRow = document.getElementById(`cross-row-${camId}`);
+    if (result.crossCamera && result.crossCameraNote) {
+      crossRow.style.display = 'flex';
+      document.getElementById(`iv-cross-${camId}`).textContent = result.crossCameraNote;
+    } else {
+      crossRow.style.display = 'none';
+    }
+
+    // People tags
+    const peopleRow  = document.getElementById(`people-row-${camId}`);
+    const peopleTags = document.getElementById(`iv-people-${camId}`);
+    if (result.people && result.people.length > 0) {
+      peopleRow.style.display = 'flex';
+      peopleTags.innerHTML = result.people.map(p => {
+        let cls = 'person-tag';
+        let label = `#${p.person_id}`;
+        if (p.is_new)    { cls += ' new-tag';     label += ' NEW'; }
+        if (p.is_return) { cls += ' returning';   label += ' ↩'; }
+        if (p.flagged)   { cls += ' flagged-tag'; label += ' ⚠️'; }
+        return `<span class="${cls}" onclick="openPersonModal(${p.person_id})" title="${p.description}">${label}</span>`;
+      }).join('');
+    } else {
+      peopleRow.style.display = 'none';
+    }
+
+    // Behavioral alerts
+    const behavDiv = document.getElementById(`behavioral-${camId}`);
+    if (result.behavioralAlerts && result.behavioralAlerts.length > 0) {
+      behavDiv.innerHTML = result.behavioralAlerts.map(a =>
+        `<div class="behavioral-alert ${a.type}">${a.type === 'RETURN' ? '↩ RETURN: ' : '🔒 RESTRICTED: '}${a.message}</div>`
+      ).join('');
+      result.behavioralAlerts.forEach(a => addToLog(camId, a.message, 'BEHAVIORAL'));
+    } else {
+      behavDiv.innerHTML = '';
+    }
+
+    if (result.incident) addToLog(camId, result.description, result.severity);
+    if (document.getElementById('people-panel').style.display === 'block') refreshPeople();
+  }
+
+  function addToLog(camId, description, severity) {
+    const log = document.getElementById('incident-log');
+    const empty = log.querySelector('.empty-log');
+    if (empty) empty.remove();
+
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${severity}`;
+    entry.innerHTML = `
+      <span class="log-time">${new Date().toLocaleTimeString()}</span>
+      <span class="log-cam">${camId}</span>
+      <span class="log-sev ${severity}">[${severity}]</span>
+      <span class="log-desc">${description}</span>
+    `;
+
+    log.insertBefore(entry, log.firstChild);
+    while (log.children.length > 50) log.removeChild(log.lastChild);
+  }
+
+  // ─── People panel ──────────────────────────────────────────────────────────
+  async function refreshPeople() {
+    const res = await fetch('/people');
+    const people = await res.json();
+    const list = document.getElementById('people-list');
+
+    if (people.length === 0) {
+      list.innerHTML = '<span class="empty-log">No people recorded yet.</span>';
+      return;
+    }
+
+    list.innerHTML = people.map(p => `
+      <div class="person-card ${p.flagged ? 'flagged' : ''}">
+        <div class="person-id">#${p.id} — Seen ${p.times_seen}x ${p.flagged ? '<span style="color:var(--orange);">⚠️ FLAGGED</span>' : ''}</div>
+        <div class="person-desc">${p.description}</div>
+        <div class="person-meta">First: ${new Date(p.first_seen).toLocaleString()}</div>
+        <div class="person-meta">Last: ${p.last_camera} @ ${new Date(p.last_seen).toLocaleTimeString()}</div>
+        ${p.notes ? `<div class="person-note">📝 ${p.notes}</div>` : ''}
+        <div class="person-actions">
+          <button class="btn" onclick="openPersonModal(${p.id})">DETAIL</button>
+          <button class="btn" onclick="addNote(${p.id})">NOTE</button>
+          <button class="btn ${p.flagged ? 'flagged' : 'warn'}" onclick="toggleFlag(${p.id})">
+            ${p.flagged ? 'UNFLAG' : '⚠️ FLAG'}
+          </button>
+          <button class="btn danger" onclick="deletePerson(${p.id})">DELETE</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function addNote(personId) {
+    const note = prompt('Enter note for this person:');
+    if (note === null) return;
+    await fetch(`/people/${personId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: note })
+    });
+    refreshPeople();
+  }
+
+  async function toggleFlag(personId) {
+    await fetch(`/people/${personId}/flag`, { method: 'POST' });
+    refreshPeople();
+  }
+
+  async function deletePerson(personId) {
+    if (!confirm(`Delete person #${personId} and all their sightings?`)) return;
+    await fetch(`/people/${personId}`, { method: 'DELETE' });
+    refreshPeople();
+  }
+
+  // ─── Modal ─────────────────────────────────────────────────────────────────
+  async function openPersonModal(personId) {
+    currentModalPersonId = personId;
+    document.getElementById('modal-title').textContent = `// PERSON #${personId}`;
+    document.getElementById('modal-overlay').classList.add('open');
+    switchTab('sightings');
+  }
+
+  async function switchTab(tab) {
+    document.querySelectorAll('.modal-tab').forEach((t, i) => {
+      t.classList.toggle('active', (i === 0 && tab === 'sightings') || (i === 1 && tab === 'timeline'));
+    });
+
+    const body = document.getElementById('modal-body');
+
+    if (tab === 'sightings') {
+      const res = await fetch(`/people/${currentModalPersonId}/sightings`);
+      const sightings = await res.json();
+
+      if (sightings.length === 0) {
+        body.innerHTML = '<div class="empty-log">No sightings recorded.</div>';
+        return;
+      }
+
+      body.innerHTML = sightings.map(s => `
+        <div class="sighting-entry">
+          <span class="sighting-time">${new Date(s.timestamp).toLocaleTimeString()}</span>
+          <span class="sighting-cam">${s.camera_id}</span>
+          <span class="sighting-sev ${s.incident ? s.severity : ''} ${s.is_return ? 'RETURN' : ''}">
+            ${s.is_return ? '↩ RETURN' : s.incident ? `[${s.severity}]` : 'CLEAR'}
+          </span>
+          <span class="sighting-desc">${s.description}</span>
+        </div>
+      `).join('');
+
+    } else {
+      const res = await fetch(`/people/${currentModalPersonId}/timeline`);
+      const timeline = await res.json();
+
+      if (timeline.length === 0) {
+        body.innerHTML = '<div class="empty-log">No movement data yet.</div>';
+        return;
+      }
+
+      body.innerHTML = `<div class="timeline">` + timeline.map(t => `
+        <div class="timeline-entry">
+          <span class="tl-time">${new Date(t.timestamp).toLocaleTimeString()}</span>
+          <div class="tl-dot ${t.incident ? 'incident' : ''}"></div>
+          <span class="tl-cam">${t.camera_id}</span>
+          <span class="tl-label">${t.incident ? `[${t.severity}] Incident` : 'Observed — clear'}</span>
+        </div>
+      `).join('') + `</div>`;
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    currentModalPersonId = null;
+  }
+
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+
+  // ─── Remove / clear ────────────────────────────────────────────────────────
+  function removeCamera(camId) {
+    if (!cameras[camId]) return;
+    clearInterval(cameras[camId].intervalId);
+    if (cameras[camId].stream) cameras[camId].stream.getTracks().forEach(t => t.stop());
+    document.getElementById(`card-${camId}`)?.remove();
+    delete cameras[camId];
+  }
+
+  function clearAll() {
+    Object.keys(cameras).forEach(removeCamera);
+    document.getElementById('incident-log').innerHTML =
+      '<div class="empty-log">No incidents detected yet.</div>';
+  }
+</script>
+</body>
+</html>
